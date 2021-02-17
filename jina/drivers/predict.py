@@ -1,10 +1,12 @@
-from typing import List, Any, Iterable, Union
+from typing import List, Any, Union
 
 import numpy as np
 
 from . import BaseExecutableDriver, FastRecursiveMixin
 from ..helper import typename
-from ..types.sets import DocumentSet
+
+if False:
+    from ..types.sets import DocumentSet
 
 
 class BasePredictDriver(FastRecursiveMixin, BaseExecutableDriver):
@@ -28,11 +30,10 @@ class BaseLabelPredictDriver(BasePredictDriver):
 
     def _apply_all(
             self,
-            leaves: Iterable['DocumentSet'],
+            docs: 'DocumentSet',
             *args,
             **kwargs,
     ) -> None:
-        docs = DocumentSet.flatten(leaves)
         embed_vecs, docs_pts = docs.all_embeddings
 
         if docs_pts:
