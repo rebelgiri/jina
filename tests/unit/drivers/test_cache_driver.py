@@ -53,7 +53,7 @@ def test_cache_driver_twice(tmpdir, test_metas):
 def test_cache_driver_tmpfile(tmpdir, test_metas):
     docs = DocumentSet(list(random_docs(10, embedding=False)))
     driver = MockCacheDriver()
-    with DocCache(tmpdir, field=ID_KEY, metas=test_metas) as executor:
+    with DocCache(tmpdir, fields=[ID_KEY], metas=test_metas) as executor:
         assert not executor.handler_mutex
         driver.attach(executor=executor, runtime=None)
 
@@ -80,7 +80,7 @@ def test_cache_driver_from_file(tmpdir, test_metas):
     pickle.dump({doc.content_hash: doc.id for doc in docs}, open(f'{bin_full_path}.bin.cache', 'wb'))
 
     driver = MockCacheDriver()
-    with DocCache(metas=test_metas, field=CONTENT_HASH_KEY) as executor:
+    with DocCache(metas=test_metas, fields=[CONTENT_HASH_KEY]) as executor:
         assert not executor.handler_mutex
         driver.attach(executor=executor, runtime=None)
 
@@ -127,7 +127,7 @@ def test_cache_content_driver_same_content(tmpdir, test_metas):
 
     driver = MockBaseCacheDriver()
 
-    with DocCache(tmpdir, metas=test_metas, field=CONTENT_HASH_KEY) as executor:
+    with DocCache(tmpdir, metas=test_metas, fields=[CONTENT_HASH_KEY]) as executor:
         driver.attach(executor=executor, runtime=None)
         driver._apply_all(docs1)
 
@@ -174,7 +174,7 @@ def test_cache_content_driver_same_id(tmp_path, test_metas):
 
     driver = MockBaseCacheDriver()
 
-    with DocCache(filename, metas=test_metas, field=CONTENT_HASH_KEY) as executor:
+    with DocCache(filename, metas=test_metas, fields=[CONTENT_HASH_KEY]) as executor:
         driver.attach(executor=executor, runtime=None)
         driver._apply_all(docs1)
         driver._apply_all(docs2)
@@ -186,6 +186,8 @@ def test_cache_driver_update(tmpdir, test_metas, field_type, mocker):
     driver = MockBaseCacheDriver(method='update', traversal_paths=['r'])
 
     docs = [Document(text=f'doc_{i}') for i in range(5)]
+    # TODO
+    [d.update_content_hash() for d in docs]
 
     def validate_delete(self, keys, *args, **kwargs):
         assert len(keys) == len(docs)
@@ -195,12 +197,12 @@ def test_cache_driver_update(tmpdir, test_metas, field_type, mocker):
         assert len(keys) == len(docs)
         assert len(values) == len(docs)
         assert all([k == d.id for k, d in zip(keys, docs)])
-        if self.field == CONTENT_HASH_KEY:
+        if self.fields == CONTENT_HASH_KEY:
             assert all([v == d.content_hash for v, d in zip(values, docs)])
-        elif self.field == ID_KEY:
+        elif self.fields == ID_KEY:
             assert all([v == d.id for v, d in zip(values, docs)])
 
-    with DocCache(tmpdir, metas=test_metas, field=field_type) as e:
+    with DocCache(tmpdir, metas=test_metas, fields=[field_type]) as e:
         mocker.patch.object(DocCache, 'update', validate_update)
         mocker.patch.object(DocCache, 'delete', validate_delete)
         driver.attach(executor=e, runtime=None)
@@ -210,6 +212,8 @@ def test_cache_driver_update(tmpdir, test_metas, field_type, mocker):
 @pytest.mark.parametrize('field_type', [CONTENT_HASH_KEY, ID_KEY])
 def test_cache_driver_delete(tmpdir, test_metas, field_type, mocker):
     docs = [Document(text=f'doc_{i}') for i in range(5)]
+    # TODO
+    [d.update_content_hash() for d in docs]
 
     driver = SimpleDeleteDriver()
 
@@ -217,7 +221,7 @@ def test_cache_driver_delete(tmpdir, test_metas, field_type, mocker):
         assert len(keys) == len(docs)
         assert all([k == d.id for k, d in zip(keys, docs)])
 
-    with DocCache(tmpdir, metas=test_metas, field=field_type) as e:
+    with DocCache(tmpdir, metas=test_metas, fields=[field_type]) as e:
         mocker.patch.object(DocCache, 'delete', validate_delete)
 
         driver.attach(executor=e, runtime=None)

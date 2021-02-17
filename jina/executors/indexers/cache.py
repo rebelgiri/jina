@@ -2,7 +2,9 @@
 
 import pickle
 import tempfile
-from typing import Optional, Iterable
+from typing import Optional, Iterable, List
+
+from zope.interface.common.idatetime import IDate
 
 from jina.executors.indexers import BaseKVIndexer
 
@@ -19,7 +21,11 @@ class BaseCache(BaseKVIndexer):
     """
 
     def __init__(self, *args, **kwargs):
-        """Create a new BaseCache."""
+        """Create a new BaseCache.
+
+        :param *args: *args for super
+        :param **kwargs: **kwargs for super
+        """
         super().__init__(*args, **kwargs)
 
     def post_init(self):
@@ -59,28 +65,29 @@ class DocCache(BaseCache):
             pickle.dump(self.id_to_cache_val, open(self.path + '.ids', 'wb'))
             pickle.dump(self.cache_val_to_id, open(self.path + '.cache', 'wb'))
 
-    supported_fields = [ID_KEY, CONTENT_HASH_KEY]
-    default_field = ID_KEY
+    default_fields = [ID_KEY]
 
-    def __init__(self, index_filename: Optional[str] = None, field: Optional[str] = None, *args, **kwargs):
+    def __init__(self, index_filename: Optional[List[str]] = None, fields: Optional[List[str]] = None, *args, **kwargs):
         """Create a new DocCache.
 
         :param index_filename: file name for storing the cache data
-        :param field: field to cache on (ID_KEY or CONTENT_HASH_KEY)
+        :param fields: fields to cache on (of Document)
+        :param *args: *args for super
+        :param **kwargs: **kwargs for super
         """
         if not index_filename:
             # create a new temp file if not exist
             index_filename = tempfile.NamedTemporaryFile(delete=False).name
         super().__init__(index_filename, *args, **kwargs)
-        self.field = field or self.default_field
-        if self.field not in self.supported_fields:
-            raise ValueError(f"Field '{self.field}' not in supported list of {self.supported_fields}")
+        self.fields = fields or self.default_fields
 
     def add(self, keys: Iterable[str], values: Iterable[str], *args, **kwargs) -> None:
         """Add a document to the cache depending.
 
         :param keys: document ids to be added
         :param values: document cache values to be added
+        :param *args: *args for super
+        :param **kwargs: **kwargs for super
         """
         for key, value in zip(keys, values):
             self.query_handler.id_to_cache_val[key] = value
@@ -92,6 +99,8 @@ class DocCache(BaseCache):
 
         :param key: either the id or the content_hash of a Document
         :return: status
+        :param *args: not used
+        :param **kwargs: not used
         """
         return key in self.query_handler.cache_val_to_id
 
@@ -99,22 +108,29 @@ class DocCache(BaseCache):
         """Update cached documents.
 
         :param keys: list of Document.id
-        :param values: list of either `id` or `content_hash` of :class:`Document`
+        :param values: list of values of fields of :class:`Document`
+        :param *args: not used
+        :param **kwargs: not used
         """
-        # if we don't cache anything else, no need
-        if self.field != ID_KEY:
-            for key, value in zip(keys, values):
-                if key not in self.query_handler.id_to_cache_val:
-                    continue
-                old_value = self.query_handler.id_to_cache_val[key]
-                self.query_handler.id_to_cache_val[key] = value
-                del self.query_handler.cache_val_to_id[old_value]
-                self.query_handler.cache_val_to_id[value] = key
+
+        if len(self.fields) == 1 and self.fields[0] == ID_KEY:
+            # if we don't cache anything else, no need
+            return
+
+        for key, value in zip(keys, values):
+            if key not in self.query_handler.id_to_cache_val:
+                continue
+            old_value = self.query_handler.id_to_cache_val[key]
+            self.query_handler.id_to_cache_val[key] = value
+            del self.query_handler.cache_val_to_id[old_value]
+            self.query_handler.cache_val_to_id[value] = key
 
     def delete(self, keys: Iterable[str], *args, **kwargs) -> None:
         """Delete documents from the cache.
 
         :param keys: list of Document.id
+        :param *args: not used
+        :param **kwargs: not used
         """
         for key in keys:
             if key not in self.query_handler.id_to_cache_val:
@@ -125,13 +141,22 @@ class DocCache(BaseCache):
             self._size -= 1
 
     def get_add_handler(self):
-        """Get the CacheHandler."""
+        """Get the CacheHandler.
+
+
+        .. # noqa: DAR201"""
         return self.get_query_handler()
 
     def get_query_handler(self) -> CacheHandler:
-        """Get the CacheHandler."""
+        """Get the CacheHandler.
+
+
+        .. # noqa: DAR201"""
         return self.CacheHandler(self.save_abspath, self.logger)
 
     def get_create_handler(self):
-        """Get the CacheHandler."""
+        """Get the CacheHandler.
+
+
+        .. # noqa: DAR201"""
         return self.get_query_handler()
